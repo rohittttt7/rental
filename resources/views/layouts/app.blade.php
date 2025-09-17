@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'EquipZone - Machinery Rental & Sales Platform')</title>
     <meta name="description" content="@yield('description', 'EquipZone is your trusted platform for buying and renting construction, agriculture, and industrial machinery.')">
     
@@ -143,16 +144,74 @@
                 </form>
                 
                 <ul class="navbar-nav">
-                    <!-- Authentication links would go here -->
-                    <li class="nav-item">
-                        <a class="nav-link" href="#"><i class="fas fa-shopping-cart"></i> Cart</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="#">Login</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="btn btn-primary ms-2" href="#">Register</a>
-                    </li>
+                    @auth
+                        <!-- Cart link for authenticated users -->
+                        <li class="nav-item">
+                            <a class="nav-link position-relative" href="{{ route('cart.index') }}">
+                                <i class="fas fa-shopping-cart"></i> Cart
+                                <span class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger" id="cart-count">
+                                    0
+                                </span>
+                            </a>
+                        </li>
+                        
+                        <!-- User dropdown -->
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="userDropdown" role="button" data-bs-toggle="dropdown">
+                                <i class="fas fa-user"></i> {{ Auth::user()->name }}
+                            </a>
+                            <ul class="dropdown-menu">
+                                @if(Auth::user()->role === 'admin')
+                                    <li><a class="dropdown-item" href="{{ route('admin.dashboard') }}">
+                                        <i class="fas fa-tachometer-alt me-2"></i>Admin Dashboard
+                                    </a></li>
+                                @elseif(Auth::user()->role === 'seller')
+                                    <li><a class="dropdown-item" href="{{ route('seller.dashboard') }}">
+                                        <i class="fas fa-tachometer-alt me-2"></i>Seller Dashboard
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ route('seller.machinery') }}">
+                                        <i class="fas fa-cog me-2"></i>My Machinery
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ route('seller.sales') }}">
+                                        <i class="fas fa-chart-line me-2"></i>Sales
+                                    </a></li>
+                                @else
+                                    <li><a class="dropdown-item" href="{{ route('customer.dashboard') }}">
+                                        <i class="fas fa-tachometer-alt me-2"></i>Dashboard
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ route('customer.orders') }}">
+                                        <i class="fas fa-shopping-bag me-2"></i>My Orders
+                                    </a></li>
+                                    <li><a class="dropdown-item" href="{{ route('customer.rentals') }}">
+                                        <i class="fas fa-calendar-check me-2"></i>My Rentals
+                                    </a></li>
+                                @endif
+                                <li><hr class="dropdown-divider"></li>
+                                <li><a class="dropdown-item" href="{{ route(Auth::user()->role . '.profile') }}">
+                                    <i class="fas fa-user-edit me-2"></i>Profile
+                                </a></li>
+                                <li>
+                                    <form method="POST" action="{{ route('logout') }}" class="d-inline">
+                                        @csrf
+                                        <button type="submit" class="dropdown-item">
+                                            <i class="fas fa-sign-out-alt me-2"></i>Logout
+                                        </button>
+                                    </form>
+                                </li>
+                            </ul>
+                        </li>
+                    @else
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ route('login') }}">
+                                <i class="fas fa-sign-in-alt"></i> Login
+                            </a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="btn btn-primary ms-2" href="{{ route('register') }}">
+                                <i class="fas fa-user-plus"></i> Register
+                            </a>
+                        </li>
+                    @endauth
                 </ul>
             </div>
         </div>
@@ -207,6 +266,83 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Global JavaScript -->
+    <script>
+        // Update cart count on page load
+        document.addEventListener('DOMContentLoaded', function() {
+            @auth
+            updateCartCount();
+            @endauth
+        });
+
+        @auth
+        function updateCartCount() {
+            fetch('{{ route("cart.count") }}')
+                .then(response => response.json())
+                .then(data => {
+                    const cartCountEl = document.getElementById('cart-count');
+                    if (cartCountEl) {
+                        cartCountEl.textContent = data.count;
+                        cartCountEl.style.display = data.count > 0 ? 'inline-block' : 'none';
+                    }
+                })
+                .catch(error => console.error('Error updating cart count:', error));
+        }
+
+        // Add to cart function
+        function addToCart(machineryId, type, options = {}) {
+            const data = {
+                type: type,
+                ...options
+            };
+
+            fetch(`/cart/add/${machineryId}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]')?.getAttribute('content') || ''
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    updateCartCount();
+                    showToast('success', data.message);
+                } else {
+                    showToast('error', data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error adding to cart:', error);
+                showToast('error', 'An error occurred while adding to cart');
+            });
+        }
+
+        // Toast notification function
+        function showToast(type, message) {
+            // Create toast element
+            const toast = document.createElement('div');
+            toast.className = `alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show position-fixed`;
+            toast.style.cssText = 'top: 20px; right: 20px; z-index: 9999; min-width: 300px;';
+            toast.innerHTML = `
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            `;
+            
+            document.body.appendChild(toast);
+            
+            // Auto remove after 5 seconds
+            setTimeout(() => {
+                if (toast.parentNode) {
+                    toast.parentNode.removeChild(toast);
+                }
+            }, 5000);
+        }
+        @endauth
+    </script>
+    
     @stack('scripts')
 </body>
 </html>
