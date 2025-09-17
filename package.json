@@ -6,8 +6,7 @@
   "scripts": {
     "start": "node server.js",
     "dev": "nodemon server.js",
-    "build": "npm run build:client",
-    "build:client": "webpack --mode production",
+    "build": "echo 'Build completed - using server.js directly'",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
@@ -17,8 +16,7 @@
     "precommit": "lint-staged",
     "docker:build": "docker build -t rental-app .",
     "docker:run": "docker run -p 3000:3000 rental-app",
-    "deploy:heroku": "git push heroku main",
-    "postinstall": "npm run build"
+    "deploy:heroku": "git push heroku main"
   },
   "keywords": [
     "rental",
@@ -47,9 +45,7 @@
     "jest": "^29.6.2",
     "eslint": "^8.45.0",
     "prettier": "^3.0.0",
-    "lint-staged": "^13.2.3",
-    "webpack": "^5.88.2",
-    "webpack-cli": "^5.1.4"
+    "lint-staged": "^13.2.3"
   },
   "lint-staged": {
     "*.js": [
